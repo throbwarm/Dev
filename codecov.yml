@@ -1,0 +1,32 @@
+codecov:
+  require_ci_to_pass: true
+  notify:
+    after_n_builds: 1
+    wait_for_ci: true
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+coverage:
+  precision: 2
+  round: down
+  range: 70..100
+  status:
+    project:
+      default:
+        target: 90%
+        threshold: 1%
+        only_pulls: true
+        informational: false
+    patch:
+      default:
+        target: 90%
+        threshold: 1%
+        only_pulls: true
+        informational: false
+parsers:
+  javascript:
+    enable_partials: true
+ignore:
+  - "**/node_modules/**"
+  - "**/test/**"
+  - "**/*.config.*"
