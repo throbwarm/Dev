@@ -86,11 +86,16 @@ deps-update: ## Update dependencies
 	@echo "Updating pip dependencies..."
 	pip install --upgrade -r requirements.txt
 
-check: ## Run quality gate (lint + format-check + tests)
+coverage: ## Run tests with coverage report
+	@echo "Running tests with coverage..."
+	npm run -s test:cov
+
+check: ## Run quality gate (lint + format-check + tests + coverage check)
 	@echo "Running quality gate..."
 	$(MAKE) lint
 	$(MAKE) format-check
 	$(MAKE) test
+	npm run -s test:cov:check
 
 # AI-first helpers (BMAD)
 ai-status: ## Show BMAD installation status

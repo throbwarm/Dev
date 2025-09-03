@@ -121,6 +121,66 @@ async function withStubbedOpenAI(fn) {
   }
 }
 
+// Stub que lança exceção para cobrir caminhos de erro (catch)
+async function withThrowingOpenAI(fn) {
+  const path = require.resolve("openai");
+  class OpenAIThrowingStub {
+    constructor(opts) {
+      this.opts = opts || {};
+      this.chat = {
+        completions: {
+          create: async () => {
+            throw new Error("stubbed openai error");
+          },
+        },
+      };
+    }
+  }
+  const prev = require.cache[path];
+  require.cache[path] = {
+    id: path,
+    filename: path,
+    loaded: true,
+    exports: OpenAIThrowingStub,
+  };
+  try {
+    return await fn();
+  } finally {
+    if (prev) require.cache[path] = prev;
+    else delete require.cache[path];
+  }
+}
+
+// Stub que retorna choices vazio para acionar fallback de reply = 'pong' em /ai/ping
+async function withEmptyChoicesOpenAI(fn) {
+  const path = require.resolve("openai");
+  class OpenAIEmptyChoicesStub {
+    constructor(opts) {
+      this.opts = opts || {};
+      this.chat = {
+        completions: {
+          create: async () => {
+            return {};
+          },
+        },
+      };
+    }
+  }
+  const prev = require.cache[path];
+  require.cache[path] = {
+    id: path,
+    filename: path,
+    loaded: true,
+    exports: OpenAIEmptyChoicesStub,
+  };
+  try {
+    return await fn();
+  } finally {
+    if (prev) require.cache[path] = prev;
+    else delete require.cache[path];
+  }
+}
+
 test("GET /ready responds ready:true and sets x-request-id", async () => {
   await withServer(async (port) => {
     const res = await request({ port, path: "/ready" });
@@ -297,3 +357,74 @@ test("GET unknown route returns default message", async () => {
 // criar um para GET com URL malformada não é possível pois URL já é parseada. Logo,
 // cobrimos um 500 artificialmente usando um header de tamanho absurdo não é prático.
 // Como fallback, garantimos a cobertura do fallback de rota acima.
+
+test("GET /ai/ping with stubbed empty choices falls back to 'pong'", async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
+    withEmptyChoicesOpenAI(async () => {
+      await withServer(async (port) => {
+        const res = await request({ port, path: "/ai/ping" });
+        assert.equal(res.statusCode, 200);
+        const json = JSON.parse(res.body);
+        assert.equal(json.ok, true);
+        assert.equal(json.provider, "openai");
+        assert.equal(json.available, true);
+        assert.equal(json.reply, "pong");
+      });
+    }),
+  );
+});
+
+// Caminhos de erro (catch) com stub que lança
+
+test("POST /ai/chat with throwing OpenAI returns ok:false available:false", async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
+    withThrowingOpenAI(async () => {
+      await withServer(async (port) => {
+        const res = await request({
+          port,
+          method: "POST",
+          path: "/ai/chat",
+          body: { prompt: "Olá" },
+        });
+        assert.equal(res.statusCode, 200);
+        const json = JSON.parse(res.body);
+        assert.equal(json.ok, false);
+        assert.equal(json.provider, "openai");
+        assert.equal(json.available, false);
+        assert.match(json.error, /stubbed openai error/);
+      });
+    }),
+  );
+});
+
+test("POST /ai/solve with throwing OpenAI returns ok:false available:false", async () => {
+  await temporarilySetEnv(
+    { MOONSHOT_API_KEY: "moonshot-key", MOONSHOT_BASE_URL: "http://stub" },
+    () =>
+      withThrowingOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({
+            port,
+            method: "POST",
+            path: "/ai/solve",
+            body: { task: "Teste" },
+          });
+          assert.equal(res.statusCode, 200);
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, false);
+          assert.equal(json.provider, "moonshot");
+          assert.equal(json.available, false);
+          assert.match(json.error, /stubbed openai error/);
+        });
+      }),
+  );
+});
+
+test("GET unknown route returns default message", async () => {
+  await withServer(async (port) => {
+    const res = await request({ port, path: "/nao-existe" });
+    assert.equal(res.statusCode, 200);
+    assert.match(res.body, /Example Project is running/);
+    assert.equal(res.headers["content-type"], "text/plain; charset=utf-8");
+  });
+});
