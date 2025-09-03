@@ -1,6 +1,6 @@
 # Example Project
 
-[![CI](https://github.com/throbwarm/Dev/actions/workflows/ci.yml/badge.svg)](https://github.com/throbwarm/Dev/actions/workflows/ci.yml)
+[![CI](https://github.com/throbwarm/Dev/actions/workflows/ci.yml/badge.svg)](https://github.com/throbwarm/Dev/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/throbwarm/Dev/branch/main/graph/badge.svg)](https://codecov.io/gh/throbwarm/Dev)
 
 Este é um projeto exemplo que demonstra a estrutura padrão de desenvolvimento seguindo as melhores práticas de setup do macOS.
 

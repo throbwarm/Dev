@@ -1,0 +1,8 @@
+# Global owners
+* @throbwarm
+
+# Docs
+/docs/ @throbwarm
+
+# GitHub meta (workflows, templates)
+/.github/ @throbwarm
