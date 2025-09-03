@@ -9,7 +9,7 @@
     "test": "node --test",
     "test:watch": "node --test --watch",
     "test:cov": "c8 --reporter=text --reporter=lcov npm test",
-    "test:cov:check": "c8 --check-coverage --branches 80 --functions 95 --lines 72 --statements 72 npm test",
+    "test:cov:check": "c8 --check-coverage --branches 85 --functions 95 --lines 72 --statements 72 npm test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier -w .",
