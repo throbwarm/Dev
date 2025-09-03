@@ -71,6 +71,56 @@ function temporarilyUnsetEnv(keys, fn) {
   return fn().finally(restore);
 }
 
+// Adiciona utilitário para setar temporariamente variáveis de ambiente
+function temporarilySetEnv(pairs, fn) {
+  const prev = {};
+  for (const [k, v] of Object.entries(pairs)) {
+    prev[k] = process.env[k];
+    process.env[k] = v;
+  }
+  const restore = () => {
+    for (const [k, _] of Object.entries(pairs)) {
+      if (prev[k] === undefined) delete process.env[k];
+      else process.env[k] = prev[k];
+    }
+  };
+  return Promise.resolve().then(fn).finally(restore);
+}
+
+// Stub do módulo 'openai' para evitar chamadas externas e cobrir caminhos de sucesso
+async function withStubbedOpenAI(fn) {
+  const path = require.resolve("openai");
+  // Classe stub compatível com `new OpenAI({ ... })`
+  class OpenAIStub {
+    constructor(opts) {
+      this.opts = opts || {};
+      this.chat = {
+        completions: {
+          create: async ({ model, messages, max_tokens }) => {
+            return {
+              model: model || "stub-model",
+              choices: [{ message: { content: "pong" } }],
+            };
+          },
+        },
+      };
+    }
+  }
+  const prev = require.cache[path];
+  require.cache[path] = {
+    id: path,
+    filename: path,
+    loaded: true,
+    exports: OpenAIStub,
+  };
+  try {
+    return await fn();
+  } finally {
+    if (prev) require.cache[path] = prev;
+    else delete require.cache[path];
+  }
+}
+
 test("GET /ready responds ready:true and sets x-request-id", async () => {
   await withServer(async (port) => {
     const res = await request({ port, path: "/ready" });
@@ -146,7 +196,7 @@ test("POST /ai/chat with JSON body but without OPENAI_API_KEY returns available:
   });
 });
 
-test("POST /ai/solve without MOONSHOT env returns available:false", async () => {
+test("POST /ai/solve with invalid JSON and missing env returns available:false", async () => {
   await temporarilyUnsetEnv(
     ["MOONSHOT_API_KEY", "MOONSHOT_BASE_URL"],
     async () => {
@@ -155,7 +205,7 @@ test("POST /ai/solve without MOONSHOT env returns available:false", async () => 
           port,
           method: "POST",
           path: "/ai/solve",
-          body: { task: "Teste" },
+          body: "{not-json",
         });
         assert.equal(res.statusCode, 200);
         const json = JSON.parse(res.body);
@@ -164,6 +214,68 @@ test("POST /ai/solve without MOONSHOT env returns available:false", async () => 
         assert.equal(json.available, false);
       });
     },
+  );
+});
+
+// Caminhos de sucesso com stubs (sem dependências externas)
+
+test("GET /ai/ping with OPENAI_API_KEY and stubbed OpenAI returns available:true", async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
+    withStubbedOpenAI(async () => {
+      await withServer(async (port) => {
+        const res = await request({ port, path: "/ai/ping" });
+        assert.equal(res.statusCode, 200);
+        const json = JSON.parse(res.body);
+        assert.equal(json.ok, true);
+        assert.equal(json.provider, "openai");
+        assert.equal(json.available, true);
+        assert.ok(json.reply);
+      });
+    }),
+  );
+});
+
+test("POST /ai/chat with OPENAI_API_KEY and stubbed OpenAI returns available:true", async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
+    withStubbedOpenAI(async () => {
+      await withServer(async (port) => {
+        const res = await request({
+          port,
+          method: "POST",
+          path: "/ai/chat",
+          body: { prompt: "Olá" },
+        });
+        assert.equal(res.statusCode, 200);
+        const json = JSON.parse(res.body);
+        assert.equal(json.ok, true);
+        assert.equal(json.provider, "openai");
+        assert.equal(json.available, true);
+        assert.ok(typeof json.reply === "string");
+      });
+    }),
+  );
+});
+
+test("POST /ai/solve with MOONSHOT env and stubbed OpenAI returns available:true", async () => {
+  await temporarilySetEnv(
+    { MOONSHOT_API_KEY: "moonshot-key", MOONSHOT_BASE_URL: "http://stub" },
+    () =>
+      withStubbedOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({
+            port,
+            method: "POST",
+            path: "/ai/solve",
+            body: { task: "Teste" },
+          });
+          assert.equal(res.statusCode, 200);
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, true);
+          assert.equal(json.provider, "moonshot");
+          assert.equal(json.available, true);
+          assert.ok(typeof json.reply === "string");
+        });
+      }),
   );
 });
 
