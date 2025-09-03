@@ -6,6 +6,9 @@ codecov:
 comment:
   layout: "reach, diff, flags, files"
   behavior: default
+  require_changes: true
+  require_base: false
+  require_head: true
 coverage:
   precision: 2
   round: down
