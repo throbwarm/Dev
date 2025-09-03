@@ -1,7 +1,7 @@
 # Node
 node_modules/
 npm-debug.log*
-package-lock.json
+# package-lock.json is tracked to ensure reproducible installs and CI caching
 
 # Python
 .venv/
