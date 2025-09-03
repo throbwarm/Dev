@@ -256,6 +256,38 @@ test("POST /ai/chat with JSON body but without OPENAI_API_KEY returns available:
   });
 });
 
+test("POST /ai/chat without body and without OPENAI_API_KEY returns available:false", async () => {
+  await temporarilyUnsetEnv(["OPENAI_API_KEY"], async () => {
+    await withServer(async (port) => {
+      const res = await request({ port, method: "POST", path: "/ai/chat" });
+      assert.equal(res.statusCode, 200);
+      const json = JSON.parse(res.body);
+      assert.equal(json.ok, true);
+      assert.equal(json.provider, "openai");
+      assert.equal(json.available, false);
+    });
+  });
+});
+
+// Exercita o ramo catch do logger: força console.log a lançar durante o evento 'finish'
+// para cobrir o try/catch em `log()` sem afetar a resposta
+test("logger captura erro quando console.log lança", async () => {
+  const original = console.log;
+  console.log = () => {
+    throw new Error("forced log error");
+  };
+  try {
+    await withServer(async (port) => {
+      const res = await request({ port, path: "/ready" });
+      assert.equal(res.statusCode, 200);
+      const json = JSON.parse(res.body);
+      assert.equal(json.ready, true);
+    });
+  } finally {
+    console.log = original;
+  }
+});
+
 test("POST /ai/solve with invalid JSON and missing env returns available:false", async () => {
   await temporarilyUnsetEnv(
     ["MOONSHOT_API_KEY", "MOONSHOT_BASE_URL"],
