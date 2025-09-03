@@ -1,0 +1,33 @@
+name: Feature request
+labels: [enhancement]
+description: Suggest an idea to improve the project
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pela sugestão! Preencha os itens para avaliarmos melhor.
+  - type: input
+    id: summary
+    attributes:
+      label: Resumo
+      description: Descreva a proposta em 1-2 frases
+      placeholder: Ex. Adicionar endpoint /ready com teste
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivação e valor
+      description: Qual problema resolve? Qual impacto?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Escopo (o que está dentro/fora)
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite (MVP)
+      placeholder: |
+        - Dado X Quando Y Então Z
