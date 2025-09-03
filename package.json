@@ -9,7 +9,8 @@
     "test": "node --test",
     "lint": "echo 'Add ESLint here'",
     "format": "echo 'Add Prettier here'",
-    "build": "echo 'Add build script here'"
+    "build": "echo 'Add build script here'",
+    "ai:ping": "node -e \"fetch('http://localhost:3000/ai/ping').then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\""
   },
   "keywords": ["example", "development", "setup"],
   "author": "",

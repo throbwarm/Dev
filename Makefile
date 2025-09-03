@@ -81,3 +81,14 @@ deps-update: ## Update dependencies
 	npm update
 	@echo "Updating pip dependencies..."
 	pip install --upgrade -r requirements.txt
+
+# AI-first helpers (BMAD)
+ai-status: ## Show BMAD installation status
+	@npx -y bmad-method status
+
+ai-update: ## Update BMAD core/tools if updates are available
+	@npx -y bmad-method update || true
+
+ai-rules: ## Show where to edit Trae/BMAD rules
+	@echo ".trae/rules/project_rules.md"
+	@echo ".bmad-core/core-config.yaml"
