@@ -10,7 +10,9 @@
     "lint": "echo 'Add ESLint here'",
     "format": "echo 'Add Prettier here'",
     "build": "echo 'Add build script here'",
-    "ai:ping": "node -e \"fetch('http://localhost:3000/ai/ping').then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\""
+    "ai:ping": "node -e \"fetch('http://localhost:3000/ai/ping').then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\"",
+    "ai:chat": "node -e \"fetch('http://localhost:3000/ai/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:'Diga apenas PONG'})}).then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\"",
+    "ai:solve": "node -e \"fetch('http://localhost:3000/ai/solve',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({task:'Liste 3 passos objetivos para verificar logs de um serviço em produção'})}).then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\""
   },
   "keywords": ["example", "development", "setup"],
   "author": "",

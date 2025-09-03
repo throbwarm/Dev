@@ -92,3 +92,9 @@ ai-update: ## Update BMAD core/tools if updates are available
 ai-rules: ## Show where to edit Trae/BMAD rules
 	@echo ".trae/rules/project_rules.md"
 	@echo ".bmad-core/core-config.yaml"
+
+ai-chat: ## Call /ai/chat with a sample prompt (requires server running)
+	@npm run -s ai:chat
+
+ai-solve: ## Call /ai/solve with a sample task (requires server running)
+	@npm run -s ai:solve
