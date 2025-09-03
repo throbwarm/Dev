@@ -3,7 +3,7 @@ const { test } = require("node:test");
 const assert = require("node:assert");
 const http = require("node:http");
 const { once } = require("node:events");
-
+const { spawn } = require("node:child_process");
 const server = require("..");
 
 // helper to issue requests and buffer response body
@@ -344,37 +344,69 @@ test("GET unknown route returns default message", async () => {
     const res = await request({ port, path: "/nao-existe" });
     assert.equal(res.statusCode, 200);
     assert.match(res.body, /Example Project is running/);
-    assert.equal(res.headers["content-type"], "text/plain; charset=utf-8");
   });
 });
 
-// Simula erro interno levantando no handler por input específico
-// Para provocar um erro, enviamos uma rota especial que dispara exceção via query
-// Observação: como não há branch explícito para isso, simulamos enviando um header
-// que o servidor não usa e validamos que o servidor lida com 500 se ocorrer exceção.
-// Aqui, em vez de hackear o server, vamos validar o caminho já existente com JSON inválido
-// que pode lançar em locais não capturados (já temos esse teste para /ai/chat). Vamos
-// criar um para GET com URL malformada não é possível pois URL já é parseada. Logo,
-// cobrimos um 500 artificialmente usando um header de tamanho absurdo não é prático.
-// Como fallback, garantimos a cobertura do fallback de rota acima.
-
-test("GET /ai/ping with stubbed empty choices falls back to 'pong'", async () => {
-  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
-    withEmptyChoicesOpenAI(async () => {
+// Cobre caminho de erro (catch) em /ai/ping quando OpenAI lança exceção
+test("GET /ai/ping with throwing OpenAI returns ok:false available:false", async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "dummy-key" }, async () => {
+    await withThrowingOpenAI(async () => {
       await withServer(async (port) => {
         const res = await request({ port, path: "/ai/ping" });
         assert.equal(res.statusCode, 200);
         const json = JSON.parse(res.body);
-        assert.equal(json.ok, true);
+        assert.equal(json.ok, false);
         assert.equal(json.provider, "openai");
-        assert.equal(json.available, true);
-        assert.equal(json.reply, "pong");
+        assert.equal(json.available, false);
+        assert.match(String(json.error), /stubbed openai error/);
       });
-    }),
-  );
+    });
+  });
 });
 
-// Caminhos de erro (catch) com stub que lança
+// Cobre o branch do main-guard: if (require.main === module)
+// Inicia o servidor via processo filho de node index.js e encerra em seguida
+test("node index.js (main) inicia servidor e imprime listening", async () => {
+  const child = spawn(process.execPath, ["index.js"], {
+    cwd: require("node:path").join(__dirname, ".."),
+    env: { ...process.env, PORT: "0" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const gotListening = new Promise((resolve, reject) => {
+    const onData = (chunk) => {
+      const s = chunk.toString();
+      if (s.includes("Server listening")) {
+        resolve(true);
+      }
+    };
+    child.stdout.on("data", onData);
+    child.on("error", reject);
+    setTimeout(() => resolve(false), 1500);
+  });
+  const seen = await gotListening;
+  // Mata o processo filho para não ficar rodando
+  child.kill();
+  assert.equal(seen, true, "esperava ver log de listening do servidor");
+});
+
+// Garante cobertura dos dois ramos de process.env.NODE_ENV || "development" dentro do logger
+test("logger com NODE_ENV=production", async () => {
+  await temporarilySetEnv({ NODE_ENV: "production" }, async () => {
+    await withServer(async (port) => {
+      const res = await request({ port, path: "/health" });
+      assert.equal(res.statusCode, 200);
+    });
+  });
+});
+
+test("logger com NODE_ENV não definido (fallback)", async () => {
+  await temporarilyUnsetEnv(["NODE_ENV"], async () => {
+    await withServer(async (port) => {
+      const res = await request({ port, path: "/health" });
+      assert.equal(res.statusCode, 200);
+    });
+  });
+});
 
 test("POST /ai/chat with throwing OpenAI returns ok:false available:false", async () => {
   await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
@@ -427,4 +459,20 @@ test("GET unknown route returns default message", async () => {
     assert.match(res.body, /Example Project is running/);
     assert.equal(res.headers["content-type"], "text/plain; charset=utf-8");
   });
+});
+
+test("GET /ai/ping with stubbed empty choices falls back to 'pong'", async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
+    withEmptyChoicesOpenAI(async () => {
+      await withServer(async (port) => {
+        const res = await request({ port, path: "/ai/ping" });
+        assert.equal(res.statusCode, 200);
+        const json = JSON.parse(res.body);
+        assert.equal(json.ok, true);
+        assert.equal(json.provider, "openai");
+        assert.equal(json.available, true);
+        assert.equal(json.reply, "pong");
+      });
+    }),
+  );
 });
