@@ -704,3 +704,31 @@ test("POST /ai/chat com OPENAI_API_KEY e OpenAI pendurado responde 504 (timeout)
     },
   );
 });
+
+test("GET unknown route triggers top-level catch (500) when writeHead throws", async () => {
+  // Monkeypatch writeHead to throw only for the unknown-route fallback signature
+  const origWriteHead = http.ServerResponse.prototype.writeHead;
+  http.ServerResponse.prototype.writeHead = function (
+    statusCode,
+    headers,
+    ...rest
+  ) {
+    if (
+      statusCode === 200 &&
+      headers &&
+      headers["content-type"] === "text/plain; charset=utf-8"
+    ) {
+      throw new Error("stub writeHead error");
+    }
+    return origWriteHead.call(this, statusCode, headers, ...rest);
+  };
+  try {
+    await withServer(async (port) => {
+      const res = await request({ port, path: "/__trigger-catch__" });
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.body, "Internal error");
+    });
+  } finally {
+    http.ServerResponse.prototype.writeHead = origWriteHead;
+  }
+});
