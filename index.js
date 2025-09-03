@@ -129,6 +129,7 @@ const server = http.createServer(async (req, res) => {
       return handleSolve(req, res);
     }
 
+    // Unknown routes fallback
     res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
     res.end(`Example Project is running. Node ${process.version}\n`);
   } catch (e) {
@@ -154,7 +155,7 @@ function readJson(req) {
       if (!data) return resolve({});
       try {
         resolve(JSON.parse(data));
-      } catch (e) {
+      } catch {
         reject(new Error("Invalid JSON body"));
       }
     });
