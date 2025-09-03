@@ -1,0 +1,20 @@
+{
+  "name": "example-project",
+  "version": "1.0.0",
+  "description": "Example project demonstrating development setup",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js",
+    "test": "node --test",
+    "lint": "echo 'Add ESLint here'",
+    "format": "echo 'Add Prettier here'",
+    "build": "echo 'Add build script here'"
+  },
+  "keywords": ["example", "development", "setup"],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
