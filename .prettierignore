@@ -3,3 +3,6 @@
 .trae/
 docs/
 README.md
+# Ignore coverage artifacts and CI workflows from Prettier checks
+coverage/
+.github/
