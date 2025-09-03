@@ -13,6 +13,8 @@ jobs:
     strategy:
       matrix:
         node-version: [22.x, 24.x]
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,11 +40,9 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload coverage to Codecov
-        if: matrix.node-version == '24.x' && secrets.CODECOV_TOKEN != ''
+        if: matrix.node-version == '24.x' && env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v4
         with:
           files: coverage/lcov.info
           flags: unittests
           fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
