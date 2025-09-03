@@ -3,6 +3,9 @@
 
 .PHONY: help install dev test build clean lint format check deps-check deps-update
 
+# Detect tracked Python files (empty when none)
+PY_FILES := $(shell git ls-files '*.py' 2>/dev/null)
+
 # Default target
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -23,7 +26,12 @@ dev: ## Start development server
 test: ## Run all tests
 	@echo "Running tests..."
 	npm test
-	python -m pytest
+	@if [ -n "$(PY_FILES)" ]; then \
+		echo "Running Python tests..."; \
+		python -m pytest; \
+	else \
+		echo "No Python tests found, skipping"; \
+	fi
 
 test-watch: ## Run tests in watch mode
 	npm run test:watch
@@ -32,9 +40,13 @@ test-watch: ## Run tests in watch mode
 lint: ## Lint code
 	@echo "Linting JavaScript/TypeScript..."
 	npm run lint
-	@echo "Linting Python..."
-	python -m flake8 .
-	python -m mypy .
+	@if [ -n "$(PY_FILES)" ]; then \
+		echo "Linting Python..."; \
+		python -m flake8 .; \
+		python -m mypy .; \
+	else \
+		echo "No Python files found, skipping Python lint"; \
+	fi
 
 format: ## Format code
 	@echo "Formatting JavaScript/TypeScript..."
