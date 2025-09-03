@@ -7,17 +7,40 @@
     "dev": "node --watch index.js",
     "start": "node index.js",
     "test": "node --test",
-    "lint": "echo 'Add ESLint here'",
-    "format": "echo 'Add Prettier here'",
+    "test:watch": "node --test --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier -w .",
+    "format:check": "prettier -c .",
     "build": "echo 'Add build script here'",
-    "ai:ping": "node -e \"fetch('http://localhost:3000/ai/ping').then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\"",
-    "ai:chat": "node -e \"fetch('http://localhost:3000/ai/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:'Diga apenas PONG'})}).then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\"",
-    "ai:solve": "node -e \"fetch('http://localhost:3000/ai/solve',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({task:'Liste 3 passos objetivos para verificar logs de um serviço em produção'})}).then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\""
+    "prepare": "husky",
+    "ai:ping": "node -e \"const p=process.env.PORT||3000; fetch('http://localhost:'+p+'/ai/ping').then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\"",
+    "ai:chat": "node -e \"const p=process.env.PORT||3000; fetch('http://localhost:'+p+'/ai/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:'Diga apenas PONG'})}).then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\"",
+    "ai:solve": "node -e \"const p=process.env.PORT||3000; fetch('http://localhost:'+p+'/ai/solve',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({task:'Liste 3 passos objetivos para verificar logs de um serviço em produção'})}).then(r=>r.text()).then(console.log).catch(e=>{console.error(e);process.exit(1)})\""
   },
-  "keywords": ["example", "development", "setup"],
+  "keywords": [
+    "example",
+    "development",
+    "setup"
+  ],
   "author": "",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "openai": "^5.18.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.11.1",
+    "prettier": "^3.3.3",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10"
+  },
+  "lint-staged": {
+    "*.{js,mjs}": [
+      "prettier -w",
+      "eslint --fix"
+    ]
   }
 }

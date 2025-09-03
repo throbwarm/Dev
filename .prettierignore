@@ -1,0 +1,5 @@
+# Ignore vendor-like and docs folders for now
+.bmad-core/
+.trae/
+docs/
+README.md

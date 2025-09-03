@@ -55,6 +55,10 @@ format: ## Format code
 	python -m black .
 	python -m isort .
 
+format-check: ## Check formatting (JS with Prettier)
+	@echo "Checking JS formatting..."
+	npm run format:check
+
 check: lint test ## Run all checks (lint + test)
 
 # Build & deployment
@@ -81,6 +85,12 @@ deps-update: ## Update dependencies
 	npm update
 	@echo "Updating pip dependencies..."
 	pip install --upgrade -r requirements.txt
+
+check: ## Run quality gate (lint + format-check + tests)
+	@echo "Running quality gate..."
+	$(MAKE) lint
+	$(MAKE) format-check
+	$(MAKE) test
 
 # AI-first helpers (BMAD)
 ai-status: ## Show BMAD installation status
