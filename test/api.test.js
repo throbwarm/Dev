@@ -209,6 +209,39 @@ async function withHangingOpenAI(fn) {
   }
 }
 
+// Novo stub: respostas sem a propriedade `model` para cobrir ramos de fallback de modelo
+async function withNoModelChoicesOpenAI(fn) {
+  const path = require.resolve("openai");
+  class OpenAINoModelChoicesStub {
+    constructor(opts) {
+      this.opts = opts || {};
+      this.chat = {
+        completions: {
+          create: async () => {
+            return {
+              // sem `model`
+              choices: [{ message: { content: "ok" } }],
+            };
+          },
+        },
+      };
+    }
+  }
+  const prev = require.cache[path];
+  require.cache[path] = {
+    id: path,
+    filename: path,
+    loaded: true,
+    exports: OpenAINoModelChoicesStub,
+  };
+  try {
+    return await fn();
+  } finally {
+    if (prev) require.cache[path] = prev;
+    else delete require.cache[path];
+  }
+}
+
 test("GET /ready responds ready:true and sets x-request-id", async () => {
   await withServer(async (port) => {
     const res = await request({ port, path: "/ready" });
@@ -522,22 +555,126 @@ test("GET unknown route returns default message", async () => {
 });
 
 test("GET /ai/ping with stubbed empty choices falls back to 'pong'", async () => {
-  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, () =>
-    withEmptyChoicesOpenAI(async () => {
+  await temporarilySetEnv({ OPENAI_API_KEY: "test-key" }, async () => {
+    await withEmptyChoicesOpenAI(async () => {
       await withServer(async (port) => {
         const res = await request({ port, path: "/ai/ping" });
         assert.equal(res.statusCode, 200);
         const json = JSON.parse(res.body);
         assert.equal(json.ok, true);
-        assert.equal(json.provider, "openai");
         assert.equal(json.available, true);
         assert.equal(json.reply, "pong");
+        // quando OPENAI_MODEL não está definido e a resposta não tem `model`, deve cair no default
+        assert.equal(json.model, "gpt-4o-mini");
       });
-    }),
+    });
+  });
+});
+
+// Cobre ramo: quando OPENAI_MODEL estiver definido, e a resposta não tiver `model`, usar o valor do env
+test("GET /ai/ping with OPENAI_MODEL set and empty choices uses env model and reply fallback", async () => {
+  await temporarilySetEnv(
+    { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-4o-smart" },
+    async () => {
+      await withEmptyChoicesOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({ port, path: "/ai/ping" });
+          assert.equal(res.statusCode, 200);
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, true);
+          assert.equal(json.available, true);
+          assert.equal(json.model, "gpt-4o-smart");
+          assert.equal(json.reply, "pong");
+        });
+      });
+    },
   );
 });
 
-// Novo teste: timeout 504 em /ai/chat quando OpenAI "não responde"
+// Cobre ramo: /ai/chat usando OPENAI_MODEL do env quando a resposta não tem `model`
+test("POST /ai/chat with OPENAI_MODEL set and stubbed OpenAI without model uses env model", async () => {
+  await temporarilySetEnv(
+    { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "gpt-4o-smart" },
+    async () => {
+      await withNoModelChoicesOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({
+            port,
+            method: "POST",
+            path: "/ai/chat",
+            body: { prompt: "Olá" },
+          });
+          assert.equal(res.statusCode, 200);
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, true);
+          assert.equal(json.available, true);
+          assert.equal(json.model, "gpt-4o-smart");
+          assert.equal(typeof json.reply, "string");
+        });
+      });
+    },
+  );
+});
+
+// Cobre ramos: /ai/solve usa default quando MOONSHOT_MODEL não está definido e o stub não retorna `model`
+test("POST /ai/solve with MOONSHOT env and stub without model uses default model", async () => {
+  await temporarilySetEnv(
+    {
+      MOONSHOT_API_KEY: "ms-key",
+      MOONSHOT_BASE_URL: "https://moonshot.local/v1",
+      // sem MOONSHOT_MODEL
+    },
+    async () => {
+      await withNoModelChoicesOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({
+            port,
+            method: "POST",
+            path: "/ai/solve",
+            body: { task: "Diga oi" },
+          });
+          assert.equal(res.statusCode, 200);
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, true);
+          assert.equal(json.available, true);
+          assert.equal(json.model, "moonshot-large");
+          assert.equal(typeof json.reply, "string");
+        });
+      });
+    },
+  );
+});
+
+// Cobre ramo: /ai/solve usa MOONSHOT_MODEL do env quando definido e stub não retorna `model`
+test("POST /ai/solve with MOONSHOT_MODEL set and stub without model uses env model", async () => {
+  await temporarilySetEnv(
+    {
+      MOONSHOT_API_KEY: "ms-key",
+      MOONSHOT_BASE_URL: "https://moonshot.local/v1",
+      MOONSHOT_MODEL: "moonshot-pro",
+    },
+    async () => {
+      await withNoModelChoicesOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({
+            port,
+            method: "POST",
+            path: "/ai/solve",
+            body: { task: "Diga oi" },
+          });
+          assert.equal(res.statusCode, 200);
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, true);
+          assert.equal(json.available, true);
+          assert.equal(json.model, "moonshot-pro");
+          assert.equal(typeof json.reply, "string");
+        });
+      });
+    },
+  );
+});
+
+// Novo stub: timeout 504 em /ai/chat quando OpenAI "não responde"
 test("POST /ai/chat com OPENAI_API_KEY e OpenAI pendurado responde 504 (timeout)", async () => {
   await temporarilySetEnv(
     { OPENAI_API_KEY: "test", REQUEST_TIMEOUT_MS: "20" },
