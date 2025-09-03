@@ -1,5 +1,7 @@
 # Example Project
 
+[![CI](https://github.com/throbwarm/Dev/actions/workflows/ci.yml/badge.svg)](https://github.com/throbwarm/Dev/actions/workflows/ci.yml)
+
 Este é um projeto exemplo que demonstra a estrutura padrão de desenvolvimento seguindo as melhores práticas de setup do macOS.
 
 ## Pré-requisitos
