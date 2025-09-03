@@ -181,6 +181,34 @@ async function withEmptyChoicesOpenAI(fn) {
   }
 }
 
+// Novo stub: retorna uma Promise pendente para simular chamada "pendurada" e acionar timeout 504
+async function withHangingOpenAI(fn) {
+  const path = require.resolve("openai");
+  class OpenAIHangingStub {
+    constructor(opts) {
+      this.opts = opts || {};
+      this.chat = {
+        completions: {
+          create: async () => new Promise(() => {}), // nunca resolve
+        },
+      };
+    }
+  }
+  const prev = require.cache[path];
+  require.cache[path] = {
+    id: path,
+    filename: path,
+    loaded: true,
+    exports: OpenAIHangingStub,
+  };
+  try {
+    return await fn();
+  } finally {
+    if (prev) require.cache[path] = prev;
+    else delete require.cache[path];
+  }
+}
+
 test("GET /ready responds ready:true and sets x-request-id", async () => {
   await withServer(async (port) => {
     const res = await request({ port, path: "/ready" });
@@ -506,5 +534,36 @@ test("GET /ai/ping with stubbed empty choices falls back to 'pong'", async () =>
         assert.equal(json.reply, "pong");
       });
     }),
+  );
+});
+
+// Novo teste: timeout 504 em /ai/chat quando OpenAI "não responde"
+test("POST /ai/chat com OPENAI_API_KEY e OpenAI pendurado responde 504 (timeout)", async () => {
+  await temporarilySetEnv(
+    { OPENAI_API_KEY: "test", REQUEST_TIMEOUT_MS: "20" },
+    async () => {
+      await withHangingOpenAI(async () => {
+        await withServer(async (port) => {
+          const res = await request({
+            port,
+            method: "POST",
+            path: "/ai/chat",
+            body: { prompt: "demorar" },
+          });
+          assert.equal(
+            res.statusCode,
+            504,
+            `esperava 504, recebeu ${res.statusCode}: ${res.body}`,
+          );
+          const json = JSON.parse(res.body);
+          assert.equal(json.ok, false);
+          assert.equal(json.error, "Request timeout");
+          assert.ok(
+            res.headers["x-request-id"],
+            "x-request-id deve estar presente",
+          );
+        });
+      });
+    },
   );
 });
